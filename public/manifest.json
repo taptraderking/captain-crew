@@ -1,14 +1,17 @@
 {
   "name": "Captain Crew — Water Business Ops",
   "short_name": "Captain Crew",
-  "description": "Water business operations management for Captain Crew F&B",
+  "description": "Packaged drinking water operations management",
   "start_url": "/",
+  "id": "/",
   "display": "standalone",
-  "background_color": "#0B1120",
-  "theme_color": "#0EA5E9",
   "orientation": "portrait",
+  "background_color": "#06080F",
+  "theme_color": "#06080F",
+  "scope": "/",
+  "categories": ["business", "finance"],
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }

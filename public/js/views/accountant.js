@@ -1,47 +1,22 @@
-// ─── ACCOUNTANT VIEW ─────────────────────────────────────────────────────────
 const AccountantView = {
-  config: null,
   currentTab: 'sales',
 
   async render() {
     return `
       <div class="topbar">
-        <div>
-          <div class="topbar-title">📝 Accountant Panel</div>
-          <div class="topbar-sub">Sales, Expenses & Financial Records</div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="topbar-btn" onclick="App.toggleTheme()">🌓</button>
-          <button class="topbar-btn" onclick="App.logout()">↗</button>
-        </div>
+        <div class="topbar-left"><span class="topbar-icon">📝</span><div><div class="topbar-title">Accountant Panel</div><div class="topbar-sub">Sales · Purchases · Expenses</div></div></div>
+        <button class="topbar-btn" onclick="App.logout()">Logout</button>
       </div>
-      <div class="content fade-in" id="acct-content">${UI.loading()}</div>
+      <div class="content" id="acct-content">${UI.loading()}</div>
       <nav class="bottom-nav">
         <button class="nav-item active" data-tab="sales"><span class="nav-icon">💰</span><span class="nav-label">Sales</span></button>
-        <button class="nav-item" data-tab="expenses"><span class="nav-icon">💸</span><span class="nav-label">Expenses</span></button>
-        <button class="nav-item" data-tab="production"><span class="nav-icon">🏭</span><span class="nav-label">Production</span></button>
-        <button class="nav-item" data-tab="history"><span class="nav-icon">📋</span><span class="nav-label">History</span></button>
-      </nav>
-    `;
+        <button class="nav-item" data-tab="purchase"><span class="nav-icon">📦</span><span class="nav-label">Purchase</span></button>
+        <button class="nav-item" data-tab="expense"><span class="nav-icon">💸</span><span class="nav-label">Expense</span></button>
+        <button class="nav-item" data-tab="activity"><span class="nav-icon">🔔</span><span class="nav-label">Activity</span></button>
+      </nav>`;
   },
 
   async init() {
-    try {
-      AccountantView.config = await API.config();
-    } catch {
-      AccountantView.config = {
-        skus: [
-          { id: 'reg1l', name: 'Regular 1L', icon: '💧' },
-          { id: 'reg500', name: 'Regular 500ml', icon: '💦' },
-          { id: 'cust1l', name: 'Custom 1L', icon: '🏨' },
-          { id: 'cust500', name: 'Custom 500ml', icon: '🍽️' },
-          { id: 'dav1l', name: 'DaV Aqua 1L', icon: '🚂' },
-        ],
-        expenseCategories: ['EMI','Wages','Diesel/Fuel','Electricity','Delivery Van','Admin','Maintenance','Marketing','Rent','Insurance','Other'],
-        paymentModes: ['Cash','UPI','Bank Transfer','Cheque','Credit']
-      };
-    }
-
     document.querySelectorAll('.nav-item').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
@@ -55,237 +30,168 @@ const AccountantView = {
 
   renderTab() {
     const c = document.getElementById('acct-content');
-    const tabs = {
-      sales: AccountantView.renderSalesForm,
-      expenses: AccountantView.renderExpenseForm,
-      production: AccountantView.renderProductionForm,
-      history: AccountantView.renderHistory,
-    };
-    c.innerHTML = '<div class="fade-in">' + (tabs[AccountantView.currentTab] || tabs.sales)() + '</div>';
+    const fn = { sales: AccountantView.renderSales, purchase: AccountantView.renderPurchase, expense: AccountantView.renderExpense, activity: AccountantView.renderActivityTab }[AccountantView.currentTab] || AccountantView.renderSales;
+    c.innerHTML = '<div class="reveal">' + fn() + '</div>';
     AccountantView.attachEvents();
+    if (AccountantView.currentTab === 'activity') AccountantView.loadActivity();
   },
 
-  renderSalesForm() {
-    const cfg = AccountantView.config;
-    const skuOpts = cfg.skus.map(s => ({ value: s.id, label: `${s.icon} ${s.name}` }));
-    const payOpts = cfg.paymentModes;
-
-    return `
-      ${UI.sectionTitle('💰 Log Sale')}
+  renderSales() {
+    const skus = [{ value: 'Reg 1000ml', label: '💧 Regular 1L' }, { value: 'Reg 500ml', label: '💦 Regular 500ml' }, { value: 'Cust 1000ml', label: '🏨 Custom 1L' }, { value: 'Cust 500ml', label: '🍽️ Custom 500ml' }, { value: 'DaV Aqua 1L', label: '🚂 DaV Aqua 1L' }];
+    const payments = ['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Credit'];
+    return `${UI.sectionTitle('💰 Log Sale')}
       <form id="sale-form" class="card">
         ${UI.formField('Date', UI.input('s-date', { type: 'date', value: Utils.today(), required: true }))}
         <div class="form-row">
-          ${UI.formField('SKU', UI.select('s-sku', skuOpts, { required: true }))}
-          ${UI.formField('Quantity (Pkts)', UI.input('s-qty', { type: 'number', placeholder: '0', min: '1', required: true }))}
+          ${UI.formField('SKU', UI.select('s-sku', skus, { required: true }))}
+          ${UI.formField('Qty (Packets)', UI.input('s-qty', { type: 'number', placeholder: '0', min: '1', required: true }))}
         </div>
         <div class="form-row">
-          ${UI.formField('Selling Price/Pkt (₹)', UI.input('s-price', { type: 'number', step: '0.01', placeholder: '0.00', required: true }))}
-          ${UI.formField('Payment', UI.select('s-payment', payOpts, { selected: 'Cash' }))}
+          ${UI.formField('Price/Pkt (₹)', UI.input('s-price', { type: 'number', step: '0.01', placeholder: '0.00', required: true }))}
+          ${UI.formField('Payment', UI.select('s-pay', payments, { selected: 'Cash' }))}
         </div>
-        <div id="s-total" style="padding:10px;background:var(--surface);border-radius:8px;margin-bottom:12px;font-size:14px">
-          Revenue: <strong>₹0.00</strong>
+        <div id="s-total" style="padding:10px;background:rgba(16,185,129,0.08);border-radius:10px;margin-bottom:12px;font-size:14px;border:1px solid rgba(16,185,129,0.15)">
+          Revenue: <b style="color:var(--green)">₹0</b>
         </div>
-        ${UI.formField('Customer Name', UI.input('s-customer', { placeholder: 'Optional' }))}
+        ${UI.formField('Customer', UI.input('s-cust', { placeholder: 'Customer name (optional)' }))}
         ${UI.formField('Notes', UI.textarea('s-notes', { placeholder: 'Invoice ref, delivery details...', rows: 2 }))}
         <button type="submit" class="btn btn-primary">✓ Log Sale</button>
-      </form>
-    `;
+      </form>`;
   },
 
-  renderExpenseForm() {
-    const cfg = AccountantView.config;
-    const catOpts = cfg.expenseCategories;
-    const payOpts = cfg.paymentModes;
+  renderPurchase() {
+    const materials = ['Preform', 'Cap', 'Bopp', 'Sticker', 'Shrink', 'Carton', 'Ink', 'Glue', 'Minerals', 'Micro Filter', 'Bottles', 'Labels', 'Other'];
+    const units = ['kg', 'pcs', 'rolls', 'litres', 'packets', 'boxes', 'bags', 'drums', 'sheets', 'meters'];
+    return `${UI.sectionTitle('📦 Log Raw Material Purchase')}
+      <div style="font-size:12px;color:var(--text-faint);margin-bottom:12px;padding:10px;background:var(--card);border-radius:10px;border:1px dashed rgba(59,130,246,0.2)">
+        ℹ️ Log the purchase here. <b style="color:var(--blue)">Manager will approve it.</b> Status starts as "pending" until approved.
+      </div>
+      <form id="purchase-form" class="card">
+        ${UI.formField('Date', UI.input('p-date', { type: 'date', value: Utils.today(), required: true }))}
+        <div class="form-row">
+          ${UI.formField('Material', UI.select('p-material', materials, { required: true }))}
+          ${UI.formField('Supplier', UI.input('p-supplier', { placeholder: 'Supplier name' }))}
+        </div>
+        <div class="form-row">
+          ${UI.formField('Quantity', UI.input('p-qty', { type: 'number', placeholder: '0', step: '0.01', required: true }))}
+          ${UI.formField('Unit', UI.select('p-unit', units, { selected: 'kg' }))}
+        </div>
+        <div class="form-row">
+          ${UI.formField('Rate per Unit (₹)', UI.input('p-rate', { type: 'number', placeholder: '0.00', step: '0.01', required: true }))}
+          ${UI.formField('GST', UI.select('p-gst', [{ value: '0.05', label: '5%' }, { value: '0.12', label: '12%' }, { value: '0.18', label: '18%' }, { value: '0', label: 'None' }], { selected: '0.05' }))}
+        </div>
+        <div id="p-total" style="padding:10px;background:rgba(59,130,246,0.08);border-radius:10px;margin-bottom:12px;font-size:14px;border:1px solid rgba(59,130,246,0.15)">
+          Total: <b style="color:var(--blue)">₹0</b>
+        </div>
+        ${UI.formField('Notes', UI.textarea('p-notes', { placeholder: 'Bill no, quality notes...', rows: 2 }))}
+        <button type="submit" class="btn btn-primary">✓ Log Purchase (Pending Approval)</button>
+      </form>`;
+  },
 
-    return `
-      ${UI.sectionTitle('💸 Log Expense')}
+  renderExpense() {
+    const cats = ['EMI', 'Wages', 'Diesel/Fuel', 'Electricity', 'Delivery Van', 'Admin', 'Maintenance', 'Marketing', 'Rent', 'Insurance', 'Packaging', 'Water Treatment', 'Lab Testing', 'Repairs', 'Other'];
+    const payments = ['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Credit'];
+    return `${UI.sectionTitle('💸 Log Expense')}
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
+        ${['⛽ Diesel', '⚡ Electricity', '🚚 Van', '👷 Wages', '🔧 Repairs'].map(q => {
+          const cat = q.split(' ')[1];
+          return `<button class="btn btn-secondary btn-sm quick-exp" data-cat="${cat === 'Diesel' ? 'Diesel/Fuel' : cat}">${q}</button>`;
+        }).join('')}
+      </div>
       <form id="expense-form" class="card">
         ${UI.formField('Date', UI.input('e-date', { type: 'date', value: Utils.today(), required: true }))}
         <div class="form-row">
-          ${UI.formField('Category', UI.select('e-category', catOpts, { required: true }))}
-          ${UI.formField('Amount (₹)', UI.input('e-amount', { type: 'number', step: '0.01', placeholder: '0.00', required: true }))}
+          ${UI.formField('Category', UI.select('e-cat', cats, { required: true }))}
+          ${UI.formField('Amount (₹)', UI.input('e-amt', { type: 'number', step: '0.01', placeholder: '0.00', required: true }))}
         </div>
         <div class="form-row">
-          ${UI.formField('Payment Mode', UI.select('e-payment', payOpts, { selected: 'Cash' }))}
+          ${UI.formField('Payment', UI.select('e-pay', payments, { selected: 'Cash' }))}
           ${UI.formField('Description', UI.input('e-desc', { placeholder: 'Brief description' }))}
         </div>
-        ${UI.formField('Notes', UI.textarea('e-notes', { placeholder: 'Receipt no, vendor details...', rows: 2 }))}
+        ${UI.formField('Notes', UI.textarea('e-notes', { placeholder: 'Receipt no, vendor...', rows: 2 }))}
         <button type="submit" class="btn btn-primary">✓ Log Expense</button>
-      </form>
-
-      ${UI.sectionTitle('Quick Entry — Common Expenses')}
-      <div style="display:flex;flex-wrap:wrap;gap:8px">
-        ${[
-          { label: '⛽ Diesel', cat: 'Diesel/Fuel' },
-          { label: '⚡ Electricity', cat: 'Electricity' },
-          { label: '🚚 Van', cat: 'Delivery Van' },
-          { label: '👷 Wages', cat: 'Wages' },
-          { label: '🔧 Maintenance', cat: 'Maintenance' },
-        ].map(q => `<button class="btn btn-secondary btn-sm quick-expense" data-cat="${q.cat}">${q.label}</button>`).join('')}
-      </div>
-    `;
+      </form>`;
   },
 
-  renderProductionForm() {
-    return `
-      ${UI.sectionTitle('🏭 Log Daily Production')}
-      <form id="acct-prod-form" class="card">
-        ${UI.formField('Date', UI.input('ap-date', { type: 'date', value: Utils.today(), required: true }))}
-        <div class="grid-2">
-          ${UI.formField('💧 Reg 1L (pkts)', UI.input('ap-reg1l', { type: 'number', placeholder: '0', min: '0' }))}
-          ${UI.formField('💦 Reg 500ml (pkts)', UI.input('ap-reg500', { type: 'number', placeholder: '0', min: '0' }))}
-        </div>
-        <div class="grid-2">
-          ${UI.formField('🏨 Cust 1L (pkts)', UI.input('ap-cust1l', { type: 'number', placeholder: '0', min: '0' }))}
-          ${UI.formField('🍽️ Cust 500ml (pkts)', UI.input('ap-cust500', { type: 'number', placeholder: '0', min: '0' }))}
-        </div>
-        ${UI.formField('🚂 DaV Aqua 1L (pkts)', UI.input('ap-dav1l', { type: 'number', placeholder: '0', min: '0' }))}
-        <div id="ap-total" style="padding:10px;background:var(--surface);border-radius:8px;margin-bottom:12px;font-size:14px">
-          Total packets: <strong>0</strong>
-        </div>
-        ${UI.formField('Notes', UI.textarea('ap-notes', { placeholder: 'Shift, issues, downtime...', rows: 2 }))}
-        <button type="submit" class="btn btn-primary">✓ Log Production</button>
-      </form>
-    `;
+  renderActivityTab() {
+    return `${UI.sectionTitle('🔔 Live Activity')}
+      <button class="btn btn-secondary btn-sm" id="btn-refresh-acct" style="margin-bottom:12px">↻ Refresh</button>
+      <div id="acct-feed">${UI.loading()}</div>`;
   },
 
-  renderHistory() {
-    return `
-      ${UI.sectionTitle('📋 Recent Entries')}
-      <div class="card" id="sales-history">${UI.loading('Loading sales log...')}</div>
-      <div class="card" id="expense-history" style="margin-top:12px">${UI.loading('Loading expense log...')}</div>
-    `;
+  async loadActivity() {
+    try {
+      const d = await API.activity();
+      const el = document.getElementById('acct-feed');
+      if (el) {
+        let h = `<div class="stats-row">
+          <div class="stat-chip"><span class="stat-num" style="color:var(--green)">${d.counts.sales || 0}</span><span class="stat-label">Sales</span></div>
+          <div class="stat-chip"><span class="stat-num" style="color:var(--blue)">${d.counts.purchases || 0}</span><span class="stat-label">Purchases</span></div>
+          <div class="stat-chip"><span class="stat-num" style="color:var(--red)">${d.counts.expenses || 0}</span><span class="stat-label">Expenses</span></div>
+          <div class="stat-chip"><span class="stat-num" style="color:var(--cyan)">${d.counts.production || 0}</span><span class="stat-label">Production</span></div>
+        </div>`;
+        h += UI.activityFeed(d.feed);
+        el.innerHTML = h;
+      }
+    } catch (e) { const el = document.getElementById('acct-feed'); if (el) el.innerHTML = UI.alert('Error', e.message, 'warning'); }
   },
 
   attachEvents() {
+    const $ = id => document.getElementById(id);
+    const btn = (id, fn) => { const e = $(id); if (e) e.onclick = fn; };
+    btn('btn-refresh-acct', () => AccountantView.loadActivity());
+
     // Sale form
-    const saleForm = document.getElementById('sale-form');
+    const saleForm = $('sale-form');
     if (saleForm) {
-      const calcSaleTotal = () => {
-        const qty = Number(document.getElementById('s-qty')?.value || 0);
-        const price = Number(document.getElementById('s-price')?.value || 0);
-        document.getElementById('s-total').innerHTML = `Revenue: <strong>${Utils.currencyFull(qty * price)}</strong>`;
+      const prices = { 'Reg 1000ml': 76.74, 'Reg 500ml': 107.66, 'Cust 1000ml': 120.34, 'Cust 500ml': 155.30, 'DaV Aqua 1L': 78.70 };
+      const calcS = () => {
+        const rev = (+($('s-qty')?.value || 0)) * (+($('s-price')?.value || 0));
+        $('s-total').innerHTML = `Revenue: <b style="color:var(--green)">₹${rev.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</b>`;
       };
-      ['s-qty', 's-price'].forEach(id => document.getElementById(id)?.addEventListener('input', calcSaleTotal));
-
-      // Auto-fill selling price when SKU changes
-      document.getElementById('s-sku')?.addEventListener('change', (e) => {
-        const prices = { reg1l: 76.74, reg500: 107.66, cust1l: 120.34, cust500: 155.30, dav1l: 78.70 };
-        const priceField = document.getElementById('s-price');
-        if (priceField && prices[e.target.value]) {
-          priceField.value = prices[e.target.value];
-          calcSaleTotal();
-        }
-      });
-
-      saleForm.addEventListener('submit', async (e) => {
+      $('s-sku')?.addEventListener('change', e => { const p = $('s-price'); if (p && prices[e.target.value]) { p.value = prices[e.target.value]; calcS(); } });
+      ['s-qty', 's-price'].forEach(id => $(id)?.addEventListener('input', calcS));
+      saleForm.onsubmit = async e => {
         e.preventDefault();
-        const confirmed = await UI.confirm('Log Sale', 'Submit this sale entry?');
-        if (!confirmed) return;
+        if (!await UI.confirm('Log Sale', 'Submit this sale?')) return;
         try {
-          await API.logSale({
-            date: document.getElementById('s-date').value,
-            sku: document.getElementById('s-sku').value,
-            quantity: Number(document.getElementById('s-qty').value),
-            sellingPrice: Number(document.getElementById('s-price').value),
-            customerName: document.getElementById('s-customer').value,
-            paymentMode: document.getElementById('s-payment').value,
-            notes: document.getElementById('s-notes').value,
-          });
-          UI.toast('Sale logged!', 'success');
-          saleForm.reset();
-          document.getElementById('s-date').value = Utils.today();
-        } catch (err) { UI.toast(err.message, 'error'); }
-      });
+          await API.logSale({ date: $('s-date').value, sku: $('s-sku').value, quantity: +$('s-qty').value, sellingPrice: +$('s-price').value, customerName: $('s-cust').value, paymentMode: $('s-pay').value, notes: $('s-notes').value });
+          UI.toast('Sale logged!', 'success'); saleForm.reset(); $('s-date').value = Utils.today();
+        } catch (e) { UI.toast(e.message, 'error'); }
+      };
+    }
+
+    // Purchase form
+    const purchForm = $('purchase-form');
+    if (purchForm) {
+      const calcP = () => {
+        const qty = +($('p-qty')?.value || 0), rate = +($('p-rate')?.value || 0), gst = +($('p-gst')?.value || 0.05);
+        const total = qty * rate * (1 + gst);
+        $('p-total').innerHTML = `Total: <b style="color:var(--blue)">₹${total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</b> (incl GST)`;
+      };
+      ['p-qty', 'p-rate', 'p-gst'].forEach(id => $(id)?.addEventListener('input', calcP));
+      purchForm.onsubmit = async e => {
+        e.preventDefault();
+        if (!await UI.confirm('Log Purchase', 'Submit? Manager will need to approve this.')) return;
+        try {
+          const res = await API.logPurchase({ date: $('p-date').value, material: $('p-material').value, supplier: $('p-supplier').value, quantity: +$('p-qty').value, unit: $('p-unit').value, unitRate: +$('p-rate').value, gstRate: +$('p-gst').value, notes: $('p-notes').value });
+          UI.toast(`Purchase logged (${res.status || 'pending'})!`, 'success'); purchForm.reset(); $('p-date').value = Utils.today();
+        } catch (e) { UI.toast(e.message, 'error'); }
+      };
     }
 
     // Expense form
-    const expForm = document.getElementById('expense-form');
+    const expForm = $('expense-form');
     if (expForm) {
-      expForm.addEventListener('submit', async (e) => {
+      document.querySelectorAll('.quick-exp').forEach(b => b.addEventListener('click', () => { const s = $('e-cat'); if (s) s.value = b.dataset.cat; $('e-amt')?.focus(); }));
+      expForm.onsubmit = async e => {
         e.preventDefault();
-        const confirmed = await UI.confirm('Log Expense', 'Submit this expense?');
-        if (!confirmed) return;
+        if (!await UI.confirm('Log Expense', 'Submit this expense?')) return;
         try {
-          await API.logExpense({
-            date: document.getElementById('e-date').value,
-            category: document.getElementById('e-category').value,
-            description: document.getElementById('e-desc').value,
-            amount: Number(document.getElementById('e-amount').value),
-            paymentMode: document.getElementById('e-payment').value,
-            notes: document.getElementById('e-notes').value,
-          });
-          UI.toast('Expense logged!', 'success');
-          expForm.reset();
-          document.getElementById('e-date').value = Utils.today();
-        } catch (err) { UI.toast(err.message, 'error'); }
-      });
-
-      // Quick expense buttons
-      document.querySelectorAll('.quick-expense').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const cat = btn.dataset.cat;
-          const catSelect = document.getElementById('e-category');
-          if (catSelect) catSelect.value = cat;
-          document.getElementById('e-amount')?.focus();
-        });
-      });
-    }
-
-    // Production form
-    const prodForm = document.getElementById('acct-prod-form');
-    if (prodForm) {
-      const calcTotal = () => {
-        const fields = ['ap-reg1l','ap-reg500','ap-cust1l','ap-cust500','ap-dav1l'];
-        const total = fields.reduce((sum, id) => sum + Number(document.getElementById(id)?.value || 0), 0);
-        document.getElementById('ap-total').innerHTML = `Total packets: <strong>${Utils.num(total)}</strong>`;
+          await API.logExpense({ date: $('e-date').value, category: $('e-cat').value, description: $('e-desc').value, amount: +$('e-amt').value, paymentMode: $('e-pay').value, notes: $('e-notes').value });
+          UI.toast('Expense logged!', 'success'); expForm.reset(); $('e-date').value = Utils.today();
+        } catch (e) { UI.toast(e.message, 'error'); }
       };
-      ['ap-reg1l','ap-reg500','ap-cust1l','ap-cust500','ap-dav1l'].forEach(id =>
-        document.getElementById(id)?.addEventListener('input', calcTotal));
-
-      prodForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const confirmed = await UI.confirm('Log Production', 'Submit production data?');
-        if (!confirmed) return;
-        try {
-          await API.logProduction({
-            date: document.getElementById('ap-date').value,
-            reg1l: Number(document.getElementById('ap-reg1l').value || 0),
-            reg500: Number(document.getElementById('ap-reg500').value || 0),
-            cust1l: Number(document.getElementById('ap-cust1l').value || 0),
-            cust500: Number(document.getElementById('ap-cust500').value || 0),
-            dav1l: Number(document.getElementById('ap-dav1l').value || 0),
-            notes: document.getElementById('ap-notes').value,
-          });
-          UI.toast('Production logged!', 'success');
-          prodForm.reset();
-          document.getElementById('ap-date').value = Utils.today();
-        } catch (err) { UI.toast(err.message, 'error'); }
-      });
-    }
-
-    // History
-    if (AccountantView.currentTab === 'history') {
-      AccountantView.loadHistory();
-    }
-  },
-
-  async loadHistory() {
-    try {
-      const [sales, expenses] = await Promise.all([API.getSalesLog(), API.getExpenseLog()]);
-      const sh = document.getElementById('sales-history');
-      const eh = document.getElementById('expense-history');
-      if (sh) {
-        sh.innerHTML = '<strong style="font-size:14px">Recent Sales</strong>' +
-          UI.logTable(['Date','SKU','Qty','Price','Revenue','Customer','Payment','Notes'], sales.data, { limit: 15 });
-      }
-      if (eh) {
-        eh.innerHTML = '<strong style="font-size:14px">Recent Expenses</strong>' +
-          UI.logTable(['Date','Category','Description','Amount','Payment','Notes'], expenses.data, { limit: 15 });
-      }
-    } catch (err) {
-      const sh = document.getElementById('sales-history');
-      if (sh) sh.innerHTML = UI.alert('Could not load history', err.message + '. Ask Owner to run Setup first.', 'warning');
     }
   }
 };
