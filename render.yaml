@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: captain-crew
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: RENDER
+        value: true
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: OWNER_USERNAME
+        sync: false
+      - key: OWNER_PASSWORD
+        sync: false
+      - key: MANAGER_USERNAME
+        sync: false
+      - key: MANAGER_PASSWORD
+        sync: false
+      - key: ACCOUNTANT_USERNAME
+        sync: false
+      - key: ACCOUNTANT_PASSWORD
+        sync: false
+      - key: GOOGLE_SHEET_ID
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false
